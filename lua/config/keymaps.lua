@@ -38,8 +38,8 @@ local function find_upward(filename, start_dir)
   return nil, nil
 end
 
--- Generate a starter CMakeLists.txt that automatically tracks all .cpp files
-local function generate_cmakelists(dir)
+-- Generate a starter CMakeLists.txt that automatically tracks all .cpp or .c files
+local function generate_cmakelists(dir, is_c)
   local proj_name = vim.fn.fnamemodify(dir, ":t")
   if proj_name == "" or proj_name == "/" then
     proj_name = "app"
@@ -51,16 +51,21 @@ local function generate_cmakelists(dir)
     return proj_name
   end
 
+  local lang = is_c and "C" or "CXX"
+  local std_line = is_c and "set(CMAKE_C_STANDARD 11)" or "set(CMAKE_CXX_STANDARD 20)"
+  local std_req = is_c and "set(CMAKE_C_STANDARD_REQUIRED ON)" or "set(CMAKE_CXX_STANDARD_REQUIRED ON)"
+  local glob_pattern = is_c and "*.c" or "*.cpp"
+
   local lines = {
     "cmake_minimum_required(VERSION 3.20)",
-    string.format("project(%s CXX)", proj_name),
+    string.format("project(%s %s)", proj_name, lang),
     "",
-    "set(CMAKE_CXX_STANDARD 20)",
-    "set(CMAKE_CXX_STANDARD_REQUIRED ON)",
+    std_line,
+    std_req,
     "set(CMAKE_EXPORT_COMPILE_COMMANDS ON)",
     "",
-    "# Automatically tracks all .cpp files in this directory",
-    "file(GLOB SOURCES CONFIGURE_DEPENDS *.cpp)",
+    string.format("# Automatically tracks all %s files in this directory", glob_pattern),
+    string.format("file(GLOB SOURCES CONFIGURE_DEPENDS %s)", glob_pattern),
     string.format("add_executable(%s ${SOURCES})", proj_name),
   }
   vim.fn.writefile(lines, cmake_file)
@@ -138,10 +143,16 @@ local function execute_run(args)
     return
   end
 
-  -- 3. Check for multiple .cpp files in current directory
+  -- 3. Check for multiple .cpp / .c files in current directory
   local cpp_files = vim.fn.globpath(dir, "*.cpp", false, true)
-  if #cpp_files > 1 then
-    local proj_name = generate_cmakelists(dir)
+  local c_files = vim.fn.globpath(dir, "*.c", false, true)
+  if ft == "cpp" and #cpp_files > 1 then
+    local proj_name = generate_cmakelists(dir, false)
+    local cmd = quiet_cmake("./build/" .. proj_name .. arg_str)
+    Snacks.terminal(cmd, { cwd = dir, auto_close = false })
+    return
+  elseif ft == "c" and #c_files > 1 then
+    local proj_name = generate_cmakelists(dir, true)
     local cmd = quiet_cmake("./build/" .. proj_name .. arg_str)
     Snacks.terminal(cmd, { cwd = dir, auto_close = false })
     return
@@ -160,7 +171,7 @@ local function execute_run(args)
     )
   else
     cmd = string.format(
-      "gcc -Wall -Wextra %s -o %s && %s",
+      "gcc -std=c11 -Wall -Wextra %s -o %s -lm && %s",
       vim.fn.shellescape(file),
       vim.fn.shellescape(bin),
       run_cmd
