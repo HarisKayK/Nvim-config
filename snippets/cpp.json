@@ -1,0 +1,35 @@
+{
+  "main": {
+    "prefix": "main",
+    "body": [
+      "#include <iostream>",
+      "",
+      "int main() {",
+      "\t$0",
+      "\treturn 0;",
+      "}"
+    ],
+    "description": "C++ main boilerplate"
+  },
+  "class": {
+    "prefix": "class",
+    "body": [
+      "class ${1:Name} {",
+      "public:",
+      "\t$1();",
+      "",
+      "private:",
+      "\t$0",
+      "};"
+    ],
+    "description": "C++ class with constructor and destructor"
+  },
+  "function": {
+    "prefix": "func",
+    "body": [
+      "${1|void, int, float, bool, char, std::string|} ${2:name}(${3:arguments}) {",
+      "\t$0",
+      "}"
+    ]
+  }
+}
